@@ -10,6 +10,7 @@ missing-data escalations, approval validation, and the final verdict.
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Callable
 
@@ -263,6 +264,31 @@ def check_idempotency(action, state, policy):
     if action.idempotency_key in state.existing_idempotency_keys:
         return [make_finding(R.DUPLICATE_IDEMPOTENCY_KEY, action.idempotency_key)]
     return []
+
+
+# ------------------------------------------------------------ ESCALATE
+def check_escalations(action, state, policy, now: datetime):
+    """Checks whose resolution must be an explicit, scoped human approval."""
+    findings = []
+    supplier = state.suppliers.get(action.supplier_id)
+    if supplier is not None and supplier.approval_status == "pending":
+        findings.append(make_finding(R.SUPPLIER_PENDING_REVIEW, action.supplier_id))
+
+    if action.replaces_product_id is not None:
+        findings.append(make_finding(R.SUBSTITUTION_REQUIRES_APPROVAL, action.replaces_product_id))
+
+    for item in action.items:
+        offer = state.offers.get(item.supplier_product_id)
+        if offer is not None and now - offer.price_updated_at > policy.price_stale_after_days * timedelta(days=1):
+            findings.append(make_finding(R.PRICE_DATA_STALE, item.supplier_product_id))
+
+    missing = []
+    for field_name in ("action_id", "agent_run_id", "tool_name", "operation", "supplier_id", "currency", "delivery_address_id", "idempotency_key"):
+        if not getattr(action, field_name):
+            missing.append(field_name)
+    if missing:
+        findings.append(make_finding(R.MISSING_REQUIRED_DATA, ", ".join(missing)))
+    return findings
 
 
 # ---------------------------------------------------------------- run

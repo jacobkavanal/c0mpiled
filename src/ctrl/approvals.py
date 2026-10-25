@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from decimal import Decimal
 
-from .models import ProposedAction
+from .models import Approval, Finding, ProposedAction
+from .models import make_finding
+from .reason_codes import ReasonCode
 
 
 def _dec(value: Decimal) -> str:
@@ -50,3 +53,22 @@ def action_fingerprint(action: ProposedAction) -> str:
     }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def approval_findings(
+    action: ProposedAction, approval: Approval, now: datetime
+) -> tuple[Finding, ...]:
+    """Return hard findings when a supplied approval is invalid.
+
+    This validates only the approval token itself. Whether it resolves every
+    applicable escalation is determined by the controller, after all policy
+    findings are known.
+    """
+    findings: list[Finding] = []
+    if approval.action_fingerprint != action_fingerprint(action):
+        findings.append(make_finding(ReasonCode.APPROVAL_SCOPE_MISMATCH))
+    if approval.expires_at <= now:
+        findings.append(make_finding(ReasonCode.APPROVAL_EXPIRED))
+    if approval.used:
+        findings.append(make_finding(ReasonCode.APPROVAL_ALREADY_USED))
+    return tuple(findings)
