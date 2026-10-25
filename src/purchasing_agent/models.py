@@ -36,6 +36,81 @@ class SupplierOffer:
     lead_time_days: int
     available_quantity: int | None
     is_preferred: bool
+    price_updated_at: str = ""
+
+
+@dataclass(frozen=True)
+class InventoryRecord:
+    product_id: str
+    active: bool
+    quantity_on_hand: int
+    quantity_reserved: int
+    target_stock: int
+
+
+@dataclass(frozen=True)
+class ProductState:
+    product_id: str
+    active: bool
+    quantity_on_hand: int
+    quantity_reserved: int
+    incoming_quantity: int
+    target_stock: int
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "product_id": self.product_id,
+            "active": self.active,
+            "quantity_on_hand": self.quantity_on_hand,
+            "quantity_reserved": self.quantity_reserved,
+            "incoming_quantity": self.incoming_quantity,
+            "target_stock": self.target_stock,
+        }
+
+
+@dataclass(frozen=True)
+class TrustedStateSnapshot:
+    """Serialized bridge from Supabase rows to Person 1's TrustedState model."""
+
+    suppliers: tuple[Supplier, ...]
+    products: tuple[ProductState, ...]
+    offers: tuple[SupplierOffer, ...]
+    spent_today: Decimal
+    existing_idempotency_keys: frozenset[str]
+    allowed_delivery_address_ids: frozenset[str]
+    denied_action_fingerprints: frozenset[str]
+
+    def to_controller_payload(self) -> dict[str, object]:
+        return {
+            "suppliers": {
+                supplier.supplier_id: {
+                    "supplier_id": supplier.supplier_id,
+                    "approval_status": supplier.approval_status,
+                }
+                for supplier in self.suppliers
+            },
+            "products": {
+                product.product_id: product.to_dict() for product in self.products
+            },
+            "offers": {
+                offer.supplier_product_id: {
+                    "supplier_product_id": offer.supplier_product_id,
+                    "product_id": offer.product_id,
+                    "supplier_id": offer.supplier_id,
+                    "unit_price": money_string(offer.unit_price),
+                    "currency": offer.currency,
+                    "minimum_order_quantity": offer.minimum_order_quantity,
+                    "order_multiple": offer.order_multiple,
+                    "available_quantity": offer.available_quantity,
+                    "price_updated_at": offer.price_updated_at,
+                }
+                for offer in self.offers
+            },
+            "spent_today": money_string(self.spent_today),
+            "existing_idempotency_keys": sorted(self.existing_idempotency_keys),
+            "allowed_delivery_address_ids": sorted(self.allowed_delivery_address_ids),
+            "denied_action_fingerprints": sorted(self.denied_action_fingerprints),
+        }
 
 
 @dataclass(frozen=True)

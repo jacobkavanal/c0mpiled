@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .models import ReplenishmentNeed, Supplier, SupplierOffer
+from .models import InventoryRecord, ReplenishmentNeed, Supplier, SupplierOffer
 
 
 class SupabaseRepository:
@@ -57,6 +58,54 @@ class SupabaseRepository:
             for row in self._get("suppliers", {"select": "supplier_id,approval_status"})
         ]
 
+    def inventory_records(self) -> list[InventoryRecord]:
+        return [
+            InventoryRecord(
+                product_id=row["product_id"],
+                active=bool(row["active"]),
+                quantity_on_hand=int(row["quantity_on_hand"]),
+                quantity_reserved=int(row["quantity_reserved"]),
+                target_stock=int(row["target_stock"]),
+            )
+            for row in self._get(
+                "inventory",
+                {
+                    "select": (
+                        "product_id,active,quantity_on_hand,quantity_reserved,target_stock"
+                    )
+                },
+            )
+        ]
+
+    def incoming_quantities(self) -> dict[str, int]:
+        rows = self._get(
+            "inventory_replenishment_status",
+            {"select": "product_id,incoming_quantity"},
+        )
+        return {row["product_id"]: int(row["incoming_quantity"]) for row in rows}
+
+    def spent_today(self, now: datetime) -> Decimal:
+        """Sum committed orders placed since UTC midnight; drafts do not count."""
+        if now.tzinfo is None:
+            raise ValueError("now must be timezone-aware")
+        utc_now = now.astimezone(UTC)
+        midnight = utc_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        rows = self._get(
+            "purchase_orders",
+            {
+                "select": "status,total_amount,ordered_at",
+                "ordered_at": f"gte.{midnight.isoformat()}",
+                "status": "in.(placed,shipped,received)",
+            },
+        )
+        return sum((Decimal(str(row["total_amount"])) for row in rows), Decimal("0"))
+
+    def existing_idempotency_keys(self) -> set[str]:
+        return {
+            row["idempotency_key"]
+            for row in self._get("purchase_orders", {"select": "idempotency_key"})
+        }
+
     def offers(self) -> list[SupplierOffer]:
         return [
             SupplierOffer(
@@ -74,6 +123,7 @@ class SupabaseRepository:
                     else None
                 ),
                 is_preferred=bool(row["is_preferred"]),
+                price_updated_at=row["price_updated_at"],
             )
             for row in self._get("supplier_products", {"select": "*"})
         ]

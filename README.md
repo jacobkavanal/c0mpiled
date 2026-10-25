@@ -4,6 +4,8 @@ This branch contains the minimal deterministic purchasing-agent harness. It read
 
 It **does not execute purchases**. The only permitted next step is to send every proposal to Person 1's `evaluate(action, state, policy, approval, now)` controller. An execution adapter may be added only after an `ALLOW` decision.
 
+It also loads the controller's trusted state from Supabase: supplier approval statuses, all active/inactive products and on-order quantities, offers, committed UTC-day spend, and existing idempotency keys. It deliberately returns no denied-action fingerprints yet because the current `purchase_attempts` schema does not persist a canonical fingerprint; the audit step will add that bridge.
+
 ## Run it
 
 Use a server-side environment only (never a browser client):
@@ -32,6 +34,6 @@ The planner may round upward for supplier MOQ/multiples. Person 1's policy confi
 ## What remains
 
 - Integrate Person 1's controller import once their branch is ready.
-- Persist an audit record to `purchase_attempts` for each decision.
+- Persist an audit record to `purchase_attempts` for each decision and its canonical action fingerprint.
 - Add a human-approval flow for `ESCALATE` results.
 - Add an execution adapter that is reachable only after `ALLOW`.

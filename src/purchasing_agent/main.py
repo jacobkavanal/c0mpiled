@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from .planner import build_replenishment_proposals
 from .supabase_repository import SupabaseRepository
+from .trusted_state import load_trusted_state
 
 
 def main() -> int:
@@ -19,7 +20,16 @@ def main() -> int:
         suppliers=repository.suppliers(),
         offers=repository.offers(),
     )
-    print(json.dumps([proposal.to_dict() for proposal in proposals], indent=2))
+    state = load_trusted_state(repository, now=datetime.now(UTC))
+    print(
+        json.dumps(
+            {
+                "trusted_state": state.to_controller_payload(),
+                "proposals": [proposal.to_dict() for proposal in proposals],
+            },
+            indent=2,
+        )
+    )
     return 0
 
 
