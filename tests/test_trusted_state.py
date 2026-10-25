@@ -44,6 +44,9 @@ class FakeSource:
     def existing_idempotency_keys(self):
         return {"key-b", "key-a"}
 
+    def denied_action_fingerprints(self):
+        return {"fingerprint-b", "fingerprint-a"}
+
 
 def test_loads_sorted_authoritative_state_in_controller_shape() -> None:
     state = load_trusted_state(
@@ -58,7 +61,7 @@ def test_loads_sorted_authoritative_state_in_controller_shape() -> None:
     assert payload["products"]["PRD-2"]["active"] is False
     assert payload["spent_today"] == "88.10"
     assert payload["existing_idempotency_keys"] == ["key-a", "key-b"]
-    assert payload["denied_action_fingerprints"] == []
+    assert payload["denied_action_fingerprints"] == ["fingerprint-a", "fingerprint-b"]
 
 
 def test_rejects_naive_clock() -> None:

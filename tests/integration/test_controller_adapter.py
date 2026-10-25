@@ -1,6 +1,8 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from ctrl.approvals import action_fingerprint
 from ctrl.models import PolicyConfig
 from ctrl.reason_codes import Outcome
 from integration.controller_adapter import audit_record, decide, to_controller_state
@@ -57,3 +59,15 @@ def test_audit_record_is_schema_compatible_and_never_claims_execution() -> None:
     assert record["execution_status"] == "not_executed"
     assert record["tool_arguments"]["action_id"] == "ACT-1"
     assert record["attempt_id"].startswith("ATT-")
+    assert "action_fingerprint" not in record
+
+
+def test_audit_record_persists_fingerprint_for_hard_denial() -> None:
+    denied = replace(proposal(), stated_total=Decimal("49.99"))
+    decision = decide(proposal=denied, snapshot=snapshot(), policy=PolicyConfig(), now=NOW)
+
+    record = audit_record(proposal=denied, decision=decision, policy_version="demo-v1")
+
+    assert decision.outcome is Outcome.BLOCK
+    assert record["decision"] == "block"
+    assert record["action_fingerprint"] == action_fingerprint(denied)

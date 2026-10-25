@@ -39,6 +39,5 @@ The planner may round upward for supplier MOQ/multiples. Person 1's policy confi
 
 ## What remains
 
-- Persist the controller's canonical action fingerprint alongside denied audit records (the current schema does not yet have a column for it).
 - Add a human-approval flow for `ESCALATE` results.
 - Add an execution adapter that is reachable only after `ALLOW`.

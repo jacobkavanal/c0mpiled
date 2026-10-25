@@ -22,6 +22,8 @@ class TrustedStateSource(Protocol):
 
     def existing_idempotency_keys(self) -> set[str]: ...
 
+    def denied_action_fingerprints(self) -> set[str]: ...
+
 
 def load_trusted_state(
     source: TrustedStateSource,
@@ -33,8 +35,8 @@ def load_trusted_state(
 
     `now` is supplied by the caller, matching the controller's deterministic
     clock contract. The database supplies product, offer, supplier, spending,
-    and idempotency facts. Denied fingerprints remain empty until the audit
-    writer persists a canonical fingerprint alongside each denied attempt.
+    and idempotency facts. Canonical fingerprints from prior hard denials are
+    loaded so the controller can stop an identical action from being retried.
     """
     if now.tzinfo is None:
         raise ValueError("now must be timezone-aware")
@@ -58,5 +60,5 @@ def load_trusted_state(
         spent_today=source.spent_today(now.astimezone(UTC)),
         existing_idempotency_keys=frozenset(source.existing_idempotency_keys()),
         allowed_delivery_address_ids=allowed_delivery_address_ids,
-        denied_action_fingerprints=frozenset(),
+        denied_action_fingerprints=frozenset(source.denied_action_fingerprints()),
     )

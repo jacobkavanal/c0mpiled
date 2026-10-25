@@ -106,6 +106,21 @@ class SupabaseRepository:
             for row in self._get("purchase_orders", {"select": "idempotency_key"})
         }
 
+    def denied_action_fingerprints(self) -> set[str]:
+        """Return canonical fingerprints from prior hard-denied attempts only."""
+        return {
+            row["action_fingerprint"]
+            for row in self._get(
+                "purchase_attempts",
+                {
+                    "select": "action_fingerprint",
+                    "action_fingerprint": "not.is.null",
+                    "decision": "eq.block",
+                },
+            )
+            if row.get("action_fingerprint")
+        }
+
     def record_purchase_attempt(self, attempt: dict[str, object]) -> None:
         """Append one controller decision. This is audit logging, not execution."""
         self._post("purchase_attempts", attempt)

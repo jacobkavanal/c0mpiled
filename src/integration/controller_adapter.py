@@ -119,7 +119,7 @@ def audit_record(*, proposal: AgentProposedAction, decision, policy_version: str
         Outcome.BLOCK: "block",
         Outcome.STOP: "block",
     }[decision.outcome]
-    return {
+    record = {
         "attempt_id": f"ATT-{uuid4().hex.upper()}",
         "agent_run_id": proposal.agent_run_id,
         "mcp_server": "ctrl-controller",
@@ -131,3 +131,8 @@ def audit_record(*, proposal: AgentProposedAction, decision, policy_version: str
         "execution_status": "not_executed",
         "policy_version": policy_version,
     }
+    # Only hard denials make an action ineligible for another identical attempt.
+    # ESCALATE is deliberately excluded: a later scoped human approval may resolve it.
+    if decision.outcome in {Outcome.BLOCK, Outcome.STOP}:
+        record["action_fingerprint"] = decision.action_fingerprint
+    return record
