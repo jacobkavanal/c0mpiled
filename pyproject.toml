@@ -1,0 +1,10 @@
+[project]
+name = "ctrl-purchasing-agent"
+version = "0.1.0"
+description = "Deterministic purchasing proposal generator for CTRL"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
