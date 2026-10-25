@@ -17,6 +17,12 @@ $env:PYTHONPATH = "src"
 python -m purchasing_agent.main
 ```
 
+The default command evaluates and prints decisions without writing to the database. For the demo, append immutable `purchase_attempts` audit rows explicitly:
+
+```powershell
+python -m purchasing_agent.main --record-audit
+```
+
 The Supabase schema already enables RLS with no public policies, so the demo backend needs the service-role key for reads. Keep it in `.env` or your deployment secret manager; never commit or expose it to the UI.
 
 ## Selection behavior
@@ -33,7 +39,6 @@ The planner may round upward for supplier MOQ/multiples. Person 1's policy confi
 
 ## What remains
 
-- Integrate Person 1's controller import once their branch is ready.
-- Persist an audit record to `purchase_attempts` for each decision and its canonical action fingerprint.
+- Persist the controller's canonical action fingerprint alongside denied audit records (the current schema does not yet have a column for it).
 - Add a human-approval flow for `ESCALATE` results.
 - Add an execution adapter that is reachable only after `ALLOW`.

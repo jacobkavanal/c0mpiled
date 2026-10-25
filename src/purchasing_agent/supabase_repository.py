@@ -106,6 +106,10 @@ class SupabaseRepository:
             for row in self._get("purchase_orders", {"select": "idempotency_key"})
         }
 
+    def record_purchase_attempt(self, attempt: dict[str, object]) -> None:
+        """Append one controller decision. This is audit logging, not execution."""
+        self._post("purchase_attempts", attempt)
+
     def offers(self) -> list[SupplierOffer]:
         return [
             SupplierOffer(
@@ -136,3 +140,18 @@ class SupabaseRepository:
         )
         with urlopen(request, timeout=15) as response:  # noqa: S310 -- configured Supabase URL
             return json.loads(response.read().decode("utf-8"))
+
+    def _post(self, table: str, payload: dict[str, object]) -> None:
+        request = Request(
+            f"{self._url}/rest/v1/{table}",
+            data=json.dumps(payload).encode("utf-8"),
+            method="POST",
+            headers={
+                "apikey": self._key,
+                "Authorization": f"Bearer {self._key}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+        )
+        with urlopen(request, timeout=15):  # noqa: S310 -- configured Supabase URL
+            pass
